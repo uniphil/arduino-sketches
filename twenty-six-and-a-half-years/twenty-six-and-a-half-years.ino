@@ -1,11 +1,13 @@
 #include "MicroView.h"
 
-#define BUTTON 1
+#define BUTTON 2
+#define INPUT_WAIT 10000
 #define TYPING_DELAY 100
 #define TYPING_VARIANCE TYPING_DELAY / 2
 #define LINE_PAUSE 500
 #define BLINK_PERIOD 500
 #define RESULT_BLINK_PERIOD 160
+#define RESULT_HOLD 1600
 #define RESULT_BLINKS 2
 
 const uint8_t W = uView.getLCDWidth();
@@ -20,6 +22,7 @@ void setup() {
 }
 
 void loop() {
+  prompt();
   compute();
   decay();
 }
@@ -48,6 +51,38 @@ void blinkCursor(uint8_t times) {
   }
 }
 
+void prompt() {
+  bool go = false;
+  do {
+    uView.clear(PAGE);
+    uView.display();
+    delay(1600);
+    uint8_t tx = (W - 7 * (uView.getFontWidth() + 1)) / 2;
+    uint8_t cx = (W - 8 * (uView.getFontWidth() + 1)) / 2 + 1;
+    for (int i = 0; i < RESULT_BLINKS; i++) {
+      uView.setCursor(tx, 20);
+      uView.print(" touch ");
+      uView.display();
+  
+      delay(RESULT_BLINK_PERIOD / 2);
+      uView.setCursor(tx, 20);
+      uView.setColor(BLACK);
+      uView.print(" touch ");
+      uView.setColor(WHITE);
+      uView.display();
+      delay(i < RESULT_BLINKS - 1 ? RESULT_BLINK_PERIOD / 2 : 1000);
+    }
+    uView.setCursor(cx, 36);
+    type("to check");
+    delay(250);
+
+    unsigned long t0 = millis();
+    while (!go && millis() < t0 + INPUT_WAIT) {
+      go = digitalRead(BUTTON);
+    }
+  } while (!go);
+}
+
 void compute() {
   uView.clear(PAGE);
   uView.display();
@@ -59,29 +94,36 @@ void compute() {
 
   type("Attracted to women ");
   blinkCursor(random(2, 6));
-  uView.writeNoAdvance('Y', BLACK, NORM);
+  for (int i = 0; i < RESULT_BLINKS; i++) {
+    uView.writeNoAdvance('Y');
+    uView.display();
+    delay(RESULT_BLINK_PERIOD / 2);
+
+    uView.setColor(BLACK);
+    uView.writeNoAdvance('Y');
+    uView.setColor(WHITE);
+    uView.display();
+    delay(i < RESULT_BLINKS - 1 ? RESULT_BLINK_PERIOD / 2 : 500);
+  }
   uView.print('\n');
   uView.display();
   enter();
-  delay(500);
 
   type("> ");
   delay(200);
   for (int i = 0; i < RESULT_BLINKS; i++) {
     uView.setCursor((uView.getFontWidth() + 1) * 2, uView.getFontHeight() * 5);
-    uView.print("        ");
-    uView.display();
-    delay(RESULT_BLINK_PERIOD / 2);
-
-    uView.setCursor((uView.getFontWidth() + 1) * 2, uView.getFontHeight() * 5);
     uView.setColor(BLACK);
     uView.print("straight");
     uView.setColor(WHITE);
     uView.display();
+    delay(i == RESULT_BLINKS - 1 ? RESULT_HOLD : (RESULT_BLINK_PERIOD / 2));
+    
+    uView.setCursor((uView.getFontWidth() + 1) * 2, uView.getFontHeight() * 5);
+    uView.print("straight");
+    uView.display();
     delay(RESULT_BLINK_PERIOD / 2);
   }
-
-  delay(1600);
 }
 
 void decay() {
